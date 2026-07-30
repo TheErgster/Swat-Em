@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SWAT! — Bug Juice Tycoon</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="floatText"></div>
+  <div id="pixelCursor"><span class="icon" data-icon="cursor"></span></div>
+
+  <button id="optionsBtn" title="Options">
+    <span class="icon" data-icon="gear"></span>
+    <span class="optionsLabel">OPTIONS</span>
+  </button>
+
+  <div id="homeOverlay">
+    <div class="titleCard">
+      <h1>SWAT-EM!</h1>
+      <div class="subtitle">Bugs, too many bugs!</div>
+      <p class="flavor">a small, satisfying game about squishing flies</p>
+      <button id="resumeBtn" class="menuBtn">RESUME GAME</button>
+      <button id="newGameBtn" class="menuBtn secondary">NEW GAME</button>
+    </div>
+  </div>
+
+  <div id="optionsPanel">
+    <div class="optionsBox">
+      <button id="closeOptions"><span class="icon" data-icon="close"></span></button>
+      <h2>Options</h2>
+      <label class="optRow">
+        <span>Sound</span>
+        <input type="checkbox" id="soundToggle" checked>
+      </label>
+      <label class="optRow">
+        <span>Screen Shake</span>
+        <input type="checkbox" id="shakeToggle" checked>
+      </label>
+      <label class="optRow">
+        <span>Reduced Effects</span>
+        <input type="checkbox" id="effectsToggle">
+      </label>
+      <button class="optBtn" id="fullscreenBtn">Toggle Fullscreen</button>
+      <button class="optBtn" id="backToMenu">Back to Main Menu</button>
+      <button class="optBtn danger" id="resetProgress">Reset Progress</button>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div id="juiceCounter">
+      <div class="juiceRow"><span class="icon" data-icon="juice"></span><span id="juiceVal">0</span></div>
+      <div class="hudLabel">BUG JUICE</div>
+    </div>
+    <button id="shopToggle">SHOP</button>
+  </div>
+
+  <div id="shop">
+    <button id="closeShop"><span class="icon" data-icon="close"></span></button>
+    <h2>The Swat Shop</h2>
+    <div id="upgradeList"></div>
+  </div>
+
+  <div id="tip">CLICK TO SWAT · UPGRADES IN THE SHOP</div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
