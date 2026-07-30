@@ -21,8 +21,7 @@ function fillOval(cx, cy, rx, ry, color){
   ctx.ellipse(cx, cy, Math.max(0.01,rx), Math.max(0.01,ry), 0, 0, Math.PI*2);
   ctx.fill();
 }
-// Draws a classic square fly-swatter head: a smooth rounded frame with a
-// crosshatch net inside (the holes stay empty so whatever's behind shows).
+
 function pixelNetHead(cx, cy, size, frameColor, netColor, borderWidth){
   const half = size/2;
   const r = size*0.18;
@@ -76,13 +75,6 @@ document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = ICONS[el
 //   unlockAt            total juice ever earned needed (0 = always unlocked)
 //   requiresUpgrade     id of an upgrade that must be bought at least once
 //   requiresUpgradeLevel  level needed for that upgrade (default 1)
-//
-// Example — a fly that only shows up after buying "Golden Incense":
-//   defineFlyType('goldFly', {
-//     name:'Gold Fly', bodyColor:'#f2b632', baseJuice:5, baseHealth:2,
-//     weight:150, requiresUpgrade:'goldIncense', requiresUpgradeLevel:1,
-//   });
-// ---------------------------------------------------------------------
 const FLY_TYPES = {};
 function defineFlyType(id, cfg){
   FLY_TYPES[id] = Object.assign({
@@ -110,7 +102,6 @@ function isFlyUnlocked(type){
   return true;
 }
 // Effective spawn weight = base weight + any bonus granted by upgrade
-// effects (see "flyWeight:<id>" in defineUpgrade below).
 function effectiveFlyWeight(type){
   const bonus = (derived.flyWeightBonus && derived.flyWeightBonus[type.id]) || 0;
   return Math.max(0, type.weight + bonus);
@@ -119,8 +110,6 @@ defineFlyType('housefly', {
   name:'Housefly', bodyColor:'#3d3a3f', eyeColor:'#111',
   baseJuice:1, baseHealth:1, speed:90, size:20, weight:100
 });
-// Gold Fly is now gated behind the Golden Incense upgrade — buy at least
-// one level of it to let this species into the spawn pool at all.
 defineFlyType('Gold Fly',{
   name:'Gold Fly', bodyColor:'#f2b632', eyeColor:'#111',
   baseJuice:5, baseHealth:2, speed:90, size:20, weight:100,
@@ -131,17 +120,12 @@ defineFlyType('Cosmic Fly',{
   baseJuice:20, baseHealth:5, speed:100, size:20, weight:100,
   requiresUpgrade:'cosmicIncense', requiresUpgradeLevel:1,
 })
-// ---------------------------------------------------------------------
-// SWATTER TYPES — sequential single upgrades that change your weapon
-// ---------------------------------------------------------------------
 const SWATTER_TYPES = [
   { id:'plastic', name:'Plastic Swatter', cost:0,      dmg:1, color:'#d9603b', net:'#3a2718', glow:null,      icon:ICONS.swatterPlastic },
   { id:'wire',    name:'Wire Swatter',    cost:250,    dmg:2, color:'#8a8f98', net:'#2a2d31', glow:null,      icon:ICONS.swatterWire },
   { id:'zapper',  name:'Electric Zapper', cost:5000,   dmg:4, color:'#3b7fd9', net:'#bfe6ff', glow:'#7fd9ff', icon:ICONS.swatterZap },
   { id:'laser',  name:'Laser Swatter',  cost:120000, dmg:8, color:'#f2b632', net:'#ff0000', glow:'#ff523f', icon:ICONS.swatterLaser },
 ];
-// ---------------------------------------------------------------------
-// UPGRADE REGISTRY (call defineUpgrade to add a new shop upgrade)
 //
 //   name / icon / desc / section   shop display
 //   baseCost, costScale   cost = baseCost * costScale^level (rounded up)
@@ -176,7 +160,6 @@ const SWATTER_TYPES = [
 //                   'add'  (default) — stats[stat] += delta
 //                   'mult'           — stats[stat] *= (1 + delta)
 //                   'set'            — stats[stat] = delta  (last one wins)
-// ---------------------------------------------------------------------
 const UPGRADES = {};
 const UPGRADE_ORDER = [];
 function defineUpgrade(id, cfg){
@@ -236,9 +219,6 @@ defineUpgrade('cosmicIncense',{
         { stat: 'flyWeight:Cosmic Fly', perLevel: 20 },
     ],
 })
-// ---------------------------------------------------------------------
-// GAME STATE
-// ---------------------------------------------------------------------
 const state = {
   juice: 0,
   totalEarned: 0,
@@ -249,9 +229,7 @@ const state = {
   spawnTimer: 0,
 };
 UPGRADE_ORDER.forEach(id => state.upgrades[id] = 0);
-// ---------------------------------------------------------------------
-// HOME SCREEN / SCRIPTED INTRO
-// ---------------------------------------------------------------------
+//Intro
 let gameStarted = false;
 let reducedEffects = false;
 let soundOn = true;
@@ -312,9 +290,7 @@ function costFor(id){
   const up = UPGRADES[id];
   return Math.ceil(up.baseCost * Math.pow(up.costScale, up.level));
 }
-// ---------------------------------------------------------------------
 // SAVE / LOAD
-// ---------------------------------------------------------------------
 const SAVE_KEY = 'swat_game_save_v1';
 function save(){
   try{
@@ -351,9 +327,7 @@ function hasMeaningfulSave(){
     return (d.totalEarned > 0) || (d.juice > 0) || (d.swatterTier > 0) || upgradeLevels > 0;
   }catch(e){ return false; }
 }
-// ---------------------------------------------------------------------
 // FLY SPAWNING
-// ---------------------------------------------------------------------
 function weightedFlyType(){
   const keys = Object.keys(FLY_TYPES).filter(k => isFlyUnlocked(FLY_TYPES[k]));
   if(keys.length === 0) return FLY_TYPES[Object.keys(FLY_TYPES)[0]]; // safety net
@@ -382,16 +356,10 @@ function spawnFly(){
   state.flies.push(fly);
   return fly;
 }
-// ---------------------------------------------------------------------
-// SWATTER CURSOR + INPUT  (smush-style: it slams flat, it doesn't twist)
-// The swatter's on-screen position is its OWN object, not the raw mouse —
-// it's driven by real input during gameplay, but by the scripted demo
-// during the intro, so the two never fight or leak into each other.
-// ---------------------------------------------------------------------
+
 const swatter = { x: innerWidth/2, y: innerHeight*0.6, smush: 0 };
 let optionsOpen = false;
-// true whenever a menu (title card or options) is up and should own the
-// pointer instead of the swatter
+
 function isMenuUp(){
   return optionsOpen || (!gameStarted && demoPhase === 'title');
 }
@@ -439,9 +407,7 @@ canvas.addEventListener('mousedown', e => { if(gameStarted && !isMenuUp()) doSwa
 canvas.addEventListener('touchstart', e => {
   if(gameStarted && !isMenuUp() && e.touches[0]) doSwat(e.touches[0].clientX, e.touches[0].clientY);
 }, {passive:true});
-// ---------------------------------------------------------------------
-// PARTICLES + FLOATING TEXT
-// ---------------------------------------------------------------------
+
 function spawnSmush(x,y,gold){
   const baseColor = gold ? '255,210,63' : '122,44,44';
   const count = reducedEffects ? 6 : 14;
@@ -479,9 +445,7 @@ function floatJuiceText(x,y,amount,gold){
   });
   setTimeout(()=> el.remove(), 950);
 }
-// ---------------------------------------------------------------------
 // NUMBER FORMATTING
-// ---------------------------------------------------------------------
 function fmt(n){
   if(n < 1000) return (Math.round(n*10)/10).toString();
   const units = ['K','M','B','T','Qa','Qi'];
@@ -489,9 +453,7 @@ function fmt(n){
   while(n >= 1000 && u < units.length-1){ n/=1000; u++; }
   return n.toFixed(2) + units[u];
 }
-// ---------------------------------------------------------------------
-// TINY PROCEDURAL SOUND — no audio files, just a short synthesized blip
-// ---------------------------------------------------------------------
+// SMUSH sound
 let audioCtx = null;
 function playBlip(freq, dur){
   if(!soundOn) return;
@@ -509,9 +471,7 @@ function playBlip(freq, dur){
     osc.start(t); osc.stop(t+dur);
   }catch(e){}
 }
-// ---------------------------------------------------------------------
 // UPDATE LOOP
-// ---------------------------------------------------------------------
 let lastTime = performance.now();
 function update(dt){
   recompute();
@@ -544,9 +504,7 @@ function update(dt){
   if(swatter.smush > 0){ swatter.smush -= dt*5; if(swatter.smush<0) swatter.smush=0; }
   if(shakeTime > 0){ shakeTime -= dt*4; if(shakeTime<0) shakeTime=0; }
 }
-// One fly wanders in from the left, the swatter chases it down and smacks
-// it, then the title card fades in. Purely for show — real spawns start
-// once the player presses Play.
+//Intro
 function updateDemo(dt){
   demoTimer += dt;
   if(demoPhase === 'wait' && demoTimer > 0.6){
@@ -586,15 +544,9 @@ function showTitleCard(){
   document.getElementById('optionsBtn').classList.add('visible');
   updateCursorMode();
 }
-// Watchdog: the scripted intro (fly wanders in, gets smacked, THEN title
-// fades in) can stall — e.g. if a resize happens mid-flight, or the tab was
-// backgrounded and rAF paused. Rather than leave the player staring at an
-// empty room forever, force the title card open after a few seconds no
-// matter what state the demo is in.
+
 setTimeout(() => { if(!gameStarted) showTitleCard(); }, 4000);
-// ---------------------------------------------------------------------
 // DRAW LOOP
-// ---------------------------------------------------------------------
 function drawFly(f){
   const scale = f.squish>0 ? Math.max(0, 1-f.squish) : 1;
   if(f.squish > 0 && scale <= 0) return;
@@ -736,9 +688,7 @@ function draw(){
   if(!isMenuUp()) drawSwatter();
   ctx.restore();
 }
-// ---------------------------------------------------------------------
 // MAIN LOOP
-// ---------------------------------------------------------------------
 // Keeps the Options button visually attached to the title card — it tracks
 // the card's actual on-screen position every frame (including through the
 // drop/bounce animation) instead of guessing a fixed spot, so the two never
@@ -764,9 +714,7 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-// ---------------------------------------------------------------------
 // HUD + SHOP UI
-// ---------------------------------------------------------------------
 const juiceValEl = document.getElementById('juiceVal');
 function updateHUD(){
   juiceValEl.textContent = fmt(state.juice);
@@ -856,9 +804,7 @@ function renderShop(){
 }
 setInterval(() => { if(shopEl.classList.contains('open')) renderShop(); }, 500);
 renderShop();
-// ---------------------------------------------------------------------
 // HOME SCREEN / OPTIONS BUTTON WIRING
-// ---------------------------------------------------------------------
 const homeOverlay = document.getElementById('homeOverlay');
 const optionsPanel = document.getElementById('optionsPanel');
 const pixelCursorEl = document.getElementById('pixelCursor');
