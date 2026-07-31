@@ -165,7 +165,7 @@ const UPGRADE_ORDER = [];
 function defineUpgrade(id, cfg){
   UPGRADES[id] = Object.assign({
     id, name:'Upgrade', icon:ICONS.sparkle, desc:'', section:'General',
-    baseCost:10, costScale:1.15, level:0, maxLevel:Infinity,
+    baseCost:10, costScale:1.15, maxLevel:Infinity,
     unlockAt:0, // total juice ever earned needed to reveal in shop
     effects:[], // see block comment above for the full mini-language
   }, cfg);
@@ -173,18 +173,18 @@ function defineUpgrade(id, cfg){
 }
 defineUpgrade('incense', {
   name:'Incense', icon:ICONS.incense, section:'Spawning',
-  desc:'Lures a few more flies in per minute. Barely. Expensive stuff.',
+  desc:'Lures a few more flies in per minute. Expensive stuff.',
   baseCost:80, costScale:1.75, maxLevel:40,
   unlockAt:0,
-  effects:[ { stat:'spawnInterval', perLevel:-0.045 } ],
+  effects:[ { stat:'spawnInterval', perLevel:-0.1 } ],
 });
 defineUpgrade('bugFood', {
   name:'Bug Food', icon:ICONS.bugFood, section:'Flies',
   desc:'Fattens up the flies — more juice per swat, but tougher hides.',
-  baseCost:20, costScale:1.14, maxLevel:200,
+  baseCost:20, costScale:2, maxLevel:200,
   unlockAt:0,
   effects:[
-    { stat:'juiceMult', perLevel:0.12 },
+    { stat:'juiceMult', perLevel:1 },
     { stat:'healthBonus', fn: lvl => Math.floor(lvl/6) }, // +1 HP every 6 levels
   ],
 });
@@ -288,7 +288,8 @@ function recompute(){
 recompute();
 function costFor(id){
   const up = UPGRADES[id];
-  return Math.ceil(up.baseCost * Math.pow(up.costScale, up.level));
+  const level = state.upgrades[id] || 0;
+  return Math.ceil(up.baseCost * Math.pow(up.costScale, level));
 }
 // SAVE / LOAD
 const SAVE_KEY = 'swat_game_save_v1';
@@ -725,8 +726,9 @@ document.getElementById('shopToggle').onclick = () => { shopEl.classList.add('op
 document.getElementById('closeShop').onclick = () => shopEl.classList.remove('open');
 function buyUpgrade(id){
   const up = UPGRADES[id];
+  const level = state.upgrades[id] || 0;
   const cost = costFor(id);
-  if(up.level >= up.maxLevel) return;
+  if(level >= up.maxLevel) return;
   if(state.juice < cost) return;
   state.juice -= cost;
   state.upgrades[id]++;
@@ -757,15 +759,16 @@ function renderShop(){
     upgradeListEl.appendChild(label);
     for(const id of sections[sectionName]){
       const up = UPGRADES[id];
+      const level = state.upgrades[id] || 0;
       const cost = costFor(id);
-      const maxed = up.level >= up.maxLevel;
+      const maxed = level >= up.maxLevel;
       const canAfford = state.juice >= cost;
       const div = document.createElement('div');
       div.className = 'upgrade' + (maxed ? ' maxed' : (canAfford ? '' : ' disabled'));
       div.innerHTML = `
         <div class="row1">
           <span><span class="icon">${up.icon}</span>${up.name}</span>
-          <span class="lvl">Lv.${up.level}${maxed?' (MAX)':''}</span>
+          <span class="lvl">Lv.${level}${maxed?' (MAX)':''}</span>
         </div>
         <div class="desc">${up.desc}</div>
         <div class="cost ${canAfford?'':'cant'}">${maxed ? '' : ('Cost: '+fmt(cost)+' '+ICONS.juice)}</div>
