@@ -168,6 +168,11 @@ function defineUpgrade(id, cfg){
     baseCost:10, costScale:1.15, maxLevel:Infinity,
     unlockAt:0, // total juice ever earned needed to reveal in shop
     effects:[], // see block comment above for the full mini-language
+    // Purely cosmetic: if set, one little candle dangles from the ceiling
+    // per level of this upgrade (see drawIncenseCandles). candleGlow is the
+    // shadowBlur radius used for its ember — bigger = more magical-looking.
+    candleColor:null,
+    candleGlow:0,
   }, cfg);
   UPGRADE_ORDER.push(id);
 }
@@ -177,6 +182,7 @@ defineUpgrade('incense', {
   baseCost:80, costScale:1.75, maxLevel:40,
   unlockAt:0,
   effects:[ { stat:'spawnInterval', perLevel:-0.1 } ],
+  candleColor:'#c9a24b', candleGlow:4,
 });
 defineUpgrade('bugFood', {
   name:'Bug Food', icon:ICONS.bugFood, section:'Flies',
@@ -198,26 +204,28 @@ defineUpgrade('moreSwat', {
 defineUpgrade('goldIncense', {
   name:'Golden Incense', icon:ICONS.sparkle, section:'Spawning',
   desc:'A shimmering smoke that turns a slice of flies golden — worth a lot more, but built like a tank. Also the only way to attract actual Gold Flies.',
-  baseCost:1000, costScale:2.15, maxLevel:20,
-  unlockAt:800,
+  baseCost:150, costScale:2.15, maxLevel:20,
+  unlockAt:100,
   effects:[
     { stat:'goldChance', perLevel:0.012 },
     { stat:'goldMult', fn: lvl => lvl > 0 ? (4*lvl + 3) : 0 }, // base 1 + this = 8, 12, 16...
     // once you own this, Gold Flies get much more common in the pool too
     { stat:'flyWeight:Gold Fly', perLevel:20 },
   ],
+  candleColor:'#ffd23f', candleGlow:10,
 });
 defineUpgrade('cosmicIncense',{
     name: 'Comsic Incense', icon: ICONS.sparkle, section: 'Spawning',
     desc: 'Don\'t breath it in',
-    baseCost: 10000, costScale: 2.15, maxLevel: 20,
-    unlockAt: 8000,
+    baseCost: 500, costScale: 2.15, maxLevel: 20,
+    unlockAt: 300,
     effects: [
         { stat: 'cosmicChance', perLevel: 0.012 },
         { stat: 'cosmicMult', fn: lvl => lvl > 0 ? (4*lvl + 3) : 0 }, // base 1 + this = 8, 12, 16...
         // once you own this, Gold Flies get much more common in the pool too
         { stat: 'flyWeight:Cosmic Fly', perLevel: 20 },
     ],
+    candleColor:'#8844ff', candleGlow:14,
 })
 const state = {
   juice: 0,
@@ -327,6 +335,35 @@ function hasMeaningfulSave(){
     const upgradeLevels = d.upgrades ? Object.values(d.upgrades).reduce((a,b)=>a+(b||0),0) : 0;
     return (d.totalEarned > 0) || (d.juice > 0) || (d.swatterTier > 0) || upgradeLevels > 0;
   }catch(e){ return false; }
+}
+// ---------------------------------------------------------------------
+// COSMETIC CEILING CANDLES — one dangles per level of any upgrade that
+// declares a candleColor (see defineUpgrade). Purely decorative: never
+// read by recompute() or anything gameplay-related.
+// ---------------------------------------------------------------------
+const MAX_CANDLES_DRAWN = 140; // hard cap on draw calls no matter how high levels go
+function getCandleTotalCount(){
+  let total = 0;
+  for(const id of UPGRADE_ORDER){
+    const up = UPGRADES[id];
+    if(!up.candleColor) continue;
+    total += state.upgrades[id] || 0;
+  }
+  return total;
+}
+// Capped list of {color, glow} — one entry per candle actually drawn.
+function getCandleDrawList(){
+  const list = [];
+  for(const id of UPGRADE_ORDER){
+    const up = UPGRADES[id];
+    if(!up.candleColor) continue;
+    const level = state.upgrades[id] || 0;
+    for(let i=0; i<level; i++){
+      if(list.length >= MAX_CANDLES_DRAWN) return list;
+      list.push({ color: up.candleColor, glow: up.candleGlow || 0 });
+    }
+  }
+  return list;
 }
 // FLY SPAWNING
 function weightedFlyType(){
@@ -627,6 +664,63 @@ function drawSwatter(){
   ctx.shadowBlur = 0;
   ctx.restore();
 }
+// Draws one candle: a thread from the ceiling, a small cap where it
+// attaches, a colored glowing ember, and a thin wisp of smoke — reusing
+// the same flat-color, hand-drawn-icon style as the rest of the game.
+function drawSingleCandle(x, stringLen, size, color, glow){
+  ctx.strokeStyle = 'rgba(90,67,38,0.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, stringLen); ctx.stroke();
+  ctx.fillStyle = '#5a4326';
+  ctx.fillRect(x-2, 0, 4, 3);
+  if(glow){ ctx.shadowColor = color; ctx.shadowBlur = glow; }
+  fillOval(x, stringLen + size*0.35, size*0.32, size*0.4, color);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(150,150,150,0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, stringLen - 2);
+  ctx.quadraticCurveTo(x+3, stringLen-8, x, stringLen-14);
+  ctx.stroke();
+}
+// Lays candles out across the top of the screen in up to 3 rows, shrinking
+// and packing tighter as the count grows so it stays inside a small band
+// at the top no matter how many upgrades are owned. Anything past the hard
+// cap (see MAX_CANDLES_DRAWN) collapses into a "+N more" label instead of
+// ever drawing an unbounded number of shapes.
+function drawIncenseCandles(){
+  const total = getCandleTotalCount();
+  if(total <= 0) return;
+  const list = getCandleDrawList();
+  const drawnCount = list.length;
+  const overflow = total - drawnCount;
+  const rows = drawnCount <= 20 ? 1 : (drawnCount <= 60 ? 2 : 3);
+  const perRow = Math.ceil(drawnCount / rows);
+  const baseSize = 16;
+  const size = Math.max(6, Math.min(baseSize, (canvas.width / (perRow+1)) * 0.7));
+  const rowHeight = 24;
+  ctx.save();
+  for(let i=0; i<drawnCount; i++){
+    const row = Math.floor(i / perRow);
+    const rowStart = row * perRow;
+    const countInThisRow = Math.min(perRow, drawnCount - rowStart);
+    const indexInRow = i - rowStart;
+    const spacing = canvas.width / (countInThisRow + 1);
+    const x = spacing * (indexInRow + 1);
+    const stagger = (indexInRow % 2 === 0) ? 0 : 6; // slight zig-zag so a dense row doesn't read as one flat line
+    const stringLen = 14 + row*rowHeight + stagger;
+    drawSingleCandle(x, stringLen, size, list[i].color, list[i].glow);
+  }
+  ctx.restore();
+  if(overflow > 0){
+    ctx.save();
+    ctx.font = "9px 'Press Start 2P', monospace";
+    ctx.fillStyle = 'rgba(74,50,34,0.8)';
+    ctx.textAlign = 'right';
+    ctx.fillText(`+${overflow} more`, canvas.width - 12, 14);
+    ctx.restore();
+  }
+}
 function drawBackground(){
   const floorTop = canvas.height * 0.72;
   // wallpaper
@@ -684,6 +778,7 @@ function draw(){
     ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag);
   }
   drawBackground();
+  drawIncenseCandles();
   for(const f of state.flies) drawFly(f);
   drawParticles();
   if(!isMenuUp()) drawSwatter();
